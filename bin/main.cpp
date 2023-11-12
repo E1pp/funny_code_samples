@@ -11,6 +11,23 @@ struct SecondEnv
 struct ThirdEnv
 { };
 
+// must be tagged and be constexpr/consteval
+template <auto Tag = []{}>
+constexpr void EnvAwareFunction()
+{
+    if constexpr (IsCurrentEnv<SimpleEnv, Tag>()) {
+        std::cout << "Foo" << '\n';
+    } else {
+        if constexpr (IsCurrentEnv<SecondEnv, Tag>()) {
+            std::cout << "Bar" << '\n';
+        } else {
+            if constexpr (IsCurrentEnv<ThirdEnv, Tag>()) {
+                std::cout << "Bax" << '\n';
+            }
+        }
+    }
+}
+
 int main()
 {
     VerifyEnv<NullEnvironment>();
@@ -18,6 +35,7 @@ int main()
     [[maybe_unused]] auto begObj = BeginEnv<SimpleEnv>();
 
     VerifyEnv<SimpleEnv>();
+    EnvAwareFunction();
 
     std::cout << PrintEnv() << '\n';
 
