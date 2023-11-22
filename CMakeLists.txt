@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(utility)
+project(util)
 
 include(cmake/Logging.cmake)
 
@@ -13,6 +13,8 @@ add_subdirectory(third_party)
 
 include(cmake/Test.cmake)
 
-add_subdirectory(utility)
+add_subdirectory(util)
 
 add_subdirectory(bin)
+
+add_subdirectory(tests)

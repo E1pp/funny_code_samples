@@ -5,6 +5,8 @@
 #include <concepts>
 #include <string_view>
 
+namespace util {
+
 template <size_t N>
 struct EnvDeclarator
 {
@@ -155,4 +157,6 @@ constexpr auto PrintEnv()
 }
 
 /////////////////////////////////////////////////////////////////////////
+
+} // namespace util
 

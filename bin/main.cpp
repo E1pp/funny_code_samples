@@ -1,6 +1,8 @@
-#include <utility/arcane/static_env.hpp>
+#include <util/arcane/static_env.hpp>
 
 #include <iostream>
+
+using namespace util; // NOLINT
 
 struct SimpleEnv
 { };
