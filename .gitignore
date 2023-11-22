@@ -97,3 +97,6 @@ build/
 
 # Format macro
 format.sh
+
+# cache
+.cache

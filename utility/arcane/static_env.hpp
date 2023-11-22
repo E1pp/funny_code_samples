@@ -142,10 +142,10 @@ constexpr bool IsCurrentEnv()
     return std::same_as<std::decay_t<decltype(GetCurrentEnv<Tag>())>, std::decay_t<Env>>;
 }
 
-template <class Env>
+template <class Env, auto Tag = []{}>
 constexpr void VerifyEnv()
 {
-    static_assert(IsCurrentEnv<Env>());
+    static_assert(IsCurrentEnv<Env, Tag>());
 }
 
 template <auto Tag = []{}>

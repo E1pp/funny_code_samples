@@ -1,6 +1,6 @@
 # --------------------------------------------------------------------
 
-set(LIB_TARGET src)
+set(LIB_TARGET utility)
 
 # --------------------------------------------------------------------
 
@@ -21,8 +21,7 @@ target_include_directories(${LIB_TARGET} PUBLIC ${LIB_INCLUDE_PATH})
 
 set(LIB_DEPENDENCIES
         fmt
-        expected
-        weave)
+        wheels)
 
 target_link_libraries(${LIB_TARGET} PUBLIC ${LIB_DEPENDENCIES})
 
