@@ -2,14 +2,16 @@
 
 #include "storage.hpp"
 
-#include <util/common/first_of.hpp>
-#include <util/common/typed_cpo.hpp>
+#include "replace_this.hpp"
+
+#include <util/common/tag_invoke/typed_cpo.hpp>
 
 namespace util::type_erasure::detail {
 
 /////////////////////////////////////////////////////////////////////////
 
 template <class StorageType, TypedCPO CPO, class Sig = typename CPO::Signature>
+    requires TypeErasableSignature<Sig>
 class VTableEntry;
 
 template <
@@ -17,12 +19,15 @@ template <
     TypedCPO CPO,
     class Ret,
     bool NoExcept,
+    class FirstArg,
     class... Args
     >
-class VTableEntry<StorageType, CPO, Ret(Args...) noexcept(NoExcept)>
+    requires TypeErasableSignature<Ret(FirstArg, Args...) noexcept(NoExcept)>
+class VTableEntry<StorageType, CPO, Ret(FirstArg, Args...) noexcept(NoExcept)>
 {
 public:
-    using Function = Ret(RawCPO<CPO>, StorageType&, Args...) noexcept(NoExcept);
+    using Replaced = Replace<StorageType, FirstArg>;
+    using Function = Ret(RawCPO<CPO>, Replaced, Args...) noexcept(NoExcept);
 
     constexpr VTableEntry() noexcept = default;
 
@@ -35,16 +40,17 @@ public:
     // CPO(T, Args...) is well-formed
     // VTableEntry->Get gives func(CPO, Storage&, Args...)
     // s.t. it is equal to std::move(cpo)(Concrete&, Args...)
-    template <class Concrete>
+    template <class DecayedConcrete>
     static constexpr VTableEntry Create() noexcept
     {
         return VTableEntry([] (
             RawCPO<CPO> cpo,
-            StorageType& erased,
+            Replaced&& storage,
             Args&&... args) 
             noexcept(NoExcept) -> Ret
         {
-            return std::move(cpo)(AsConcreteRef<Concrete, StorageType>(erased), std::forward<Args>(args)...);
+            using Traits = StorageTraits<DecayedConcrete, Replaced>;
+            return std::move(cpo)(Traits::AsConcrete(std::forward<Replaced>(storage), std::forward<Args>(args)...));
         });
     }
 
@@ -87,7 +93,7 @@ public:
     constexpr explicit operator bool() const noexcept
         requires (sizeof...(CPOs) > 0)
     {
-        return static_cast<const VTableEntry<StorageType, FirstOf<CPOs...>>*>(this)->Get() != nullptr;
+        return static_cast<const VTableEntry<StorageType, First<Pack<CPOs...>>>*>(this)->Get() != nullptr;
     }
 
 private:

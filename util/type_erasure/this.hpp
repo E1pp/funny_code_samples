@@ -1,0 +1,14 @@
+#pragma once
+
+namespace util::type_erasure {
+
+/////////////////////////////////////////////////////////////////////////
+
+// This is a placeholder which should be placed with in the beggining
+// of a signature with proper const/ref qualificators.
+struct This
+{ };
+
+/////////////////////////////////////////////////////////////////////////
+
+} // namespace util::type_erasure

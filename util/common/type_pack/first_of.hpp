@@ -1,16 +1,18 @@
 #pragma once
 
+#include "pack.hpp"
+
 namespace util {
 
 /////////////////////////////////////////////////////////////////////////
 
 namespace detail {
 
-template <class... T>
-struct FirstOfImpl;
+template <AnyPack P>
+struct FirstImpl;
 
 template <class First, class... Suffix>
-struct FirstOfImpl<First, Suffix...>
+struct FirstImpl<Pack<First, Suffix...>>
 {
     using Type = First;
 };
@@ -19,8 +21,8 @@ struct FirstOfImpl<First, Suffix...>
 
 /////////////////////////////////////////////////////////////////////////
 
-template <class... Args>
-using FirstOf = typename detail::FirstOfImpl<Args...>::Type;
+template <AnyPack P>
+using First = typename detail::FirstImpl<P>::Type;
 
 /////////////////////////////////////////////////////////////////////////
 
