@@ -1,3 +1,5 @@
+#pragma once
+
 #include <concepts>
 #include <utility>
 
@@ -12,14 +14,14 @@ namespace tag_invoke_fn_ns {
 void TagInvoke() = delete;
 
 struct TagInvokeFunction {
-    template <class __Tag, class... Args>
-        requires requires (__Tag&& tag, Args&&... args) {
-            TagInvoke(std::forward<__Tag>(tag), std::forward<Args>(args)...);
+    template <class Tag, class... Args>
+        requires requires (Tag&& tag, Args&&... args) {
+            TagInvoke(std::forward<Tag>(tag), std::forward<Args>(args)...);
         }
-    constexpr decltype(auto) operator()(__Tag&& tag, Args&&... args) const
-    noexcept(noexcept(TagInvoke(std::forward<__Tag>(tag), std::forward<Args>(args)...)))
+    constexpr decltype(auto) operator()(Tag&& tag, Args&&... args) const
+    noexcept(noexcept(TagInvoke(std::forward<Tag>(tag), std::forward<Args>(args)...)))
     {
-        return TagInvoke(std::forward<__Tag>(tag), std::forward<Args>(args)...);
+        return TagInvoke(std::forward<Tag>(tag), std::forward<Args>(args)...);
     }
 };
 
@@ -28,52 +30,32 @@ struct TagInvokeFunction {
 // Add inline namespace to avoid conflict if someone in util namespace
 // defines customization of TagInvoke via hidden friends.
 inline namespace inline_tag_invoke_ns {
-    inline constexpr tag_invoke_fn_ns::TagInvokeFunction TagInvoke = {};
+    inline constexpr tag_invoke_fn_ns::TagInvokeFunction TagInvoke = {}; // NOLINT
 } // inline namespace inline_tag_invoke_ns
 
 /////////////////////////////////////////////////////////////////////////
 
-template <class __Tag, class... Args>
-concept TagInvocable = requires (__Tag&& tag, Args&&... args)
+template <class Tag, class... Args>
+concept TagInvocable = requires (Tag&& tag, Args&&... args)
 {
-    TagInvoke(std::forward<__Tag>(tag), std::forward<Args>(args)...);
+    TagInvoke(std::forward<Tag>(tag), std::forward<Args>(args)...);
 };
 
-template <class __Tag, class... Args>
+template <class Tag, class... Args>
 concept NothrowTagInvocable = 
-    TagInvocable<__Tag, Args...> &&
-    requires (__Tag&& tag, Args&&... args)
+    TagInvocable<Tag, Args...> &&
+    requires (Tag&& tag, Args&&... args)
     {
-        { TagInvoke(std::forward<__Tag>(tag), std::forward<Args>(args)...) } noexcept;
+        { TagInvoke(std::forward<Tag>(tag), std::forward<Args>(args)...) } noexcept;
     };
 
 /////////////////////////////////////////////////////////////////////////
 
-template <class __Tag, class Ret, class... Args>
-concept ValidThrowingTagInvokeSignature = requires (__Tag&& tag, Args&&... args)
-{
-    { TagInvoke(std::forward<__Tag>(tag), std::forward<Args>(args)...) } -> std::same_as<Ret>;
-};
-
-template <class __Tag, class Ret, class... Args>
-concept ValidNothrowTagInvokeSignature = requires (__Tag&& tag, Args&&... args)
-{
-    { TagInvoke(std::forward<__Tag>(tag), std::forward<Args>(args)...) } noexcept -> std::same_as<Ret>;
-};
-
-template <class __Tag, class Ret, bool IsNoexcept, class... Args>
-concept ValidTagInvokeSignature = 
-    (IsNoexcept ?
-    ValidNothrowTagInvokeSignature<__Tag, Ret, Args...> :
-    ValidThrowingTagInvokeSignature<__Tag, Ret, Args...>);
-
-/////////////////////////////////////////////////////////////////////////
-
-template <class __Tag, class... Args>
+template <class Tag, class... Args>
 using TagInvokeResult = std::invoke_result_t<decltype(TagInvoke), Args...>;
 
-template <auto __Tag>
-using Tag = std::decay_t<decltype(__Tag)>;
+template <auto TagValue>
+using Tag = std::decay_t<decltype(TagValue)>;
 
 /////////////////////////////////////////////////////////////////////////
 

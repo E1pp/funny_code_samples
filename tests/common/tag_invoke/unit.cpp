@@ -4,7 +4,9 @@
 
 using namespace util; // NOLINT
 
-inline constexpr struct __TestCPO1 {
+// clang-format off
+
+inline constexpr struct __TestCPO1 { // NOLINT
     template <class... Args>
         requires TagInvocable<__TestCPO1, Args...>
     constexpr auto operator()(Args&&... args) const
@@ -18,7 +20,7 @@ inline constexpr struct __TestCPO1 {
         return v + 1;
     }
 
-} TagInvokeTester = {};
+} TagInvokeTester = {}; // NOLINT
 
 struct OverloadedType1
 {
@@ -46,7 +48,7 @@ struct OverloadedType3
         return false;
     }
     
-    operator OverloadedType2() const noexcept
+    operator OverloadedType2() const noexcept // NOLINT
     {
         return OverloadedType2{};
     }
