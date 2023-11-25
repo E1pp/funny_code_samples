@@ -2,7 +2,7 @@
 
 #include "storage.hpp"
 
-#include "replace_this.hpp"
+#include "this.hpp"
 
 #include <util/common/tag_invoke/typed_cpo.hpp>
 
@@ -10,13 +10,13 @@ namespace util::type_erasure::detail {
 
 /////////////////////////////////////////////////////////////////////////
 
-template <class StorageType, TypedCPO CPO, class Sig = typename CPO::Signature>
+template <class StorageType, class CPO, class Sig = typename CPO::Signature>
     requires TypeErasableSignature<Sig>
 class VTableEntry;
 
 template <
     class StorageType,
-    TypedCPO CPO,
+    class CPO,
     class Ret,
     bool NoExcept,
     class FirstArg,
@@ -45,12 +45,12 @@ public:
     {
         return VTableEntry([] (
             RawCPO<CPO> cpo,
-            Replaced&& storage,
-            Args&&... args) 
+            Replaced storage,
+            Args... args) 
             noexcept(NoExcept) -> Ret
         {
             using Traits = StorageTraits<DecayedConcrete, Replaced>;
-            return std::move(cpo)(Traits::AsConcrete(std::forward<Replaced>(storage), std::forward<Args>(args)...));
+            return cpo(Traits::AsConcrete(std::forward<Replaced>(storage)), std::forward<Args>(args)...);
         });
     }
 
@@ -71,7 +71,7 @@ template <>
 class VTable<>
 { };
 
-template <class StorageType, class... CPOs>
+template <class StorageType, TypedCPO... CPOs>
 class VTable<StorageType, CPOs...>
     : private VTableEntry<StorageType, CPOs>...
 {

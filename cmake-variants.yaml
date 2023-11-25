@@ -1,0 +1,25 @@
+buildType:
+  default: just_debug
+  choices:
+    just_debug:
+      short: Debug
+      long: Plain Debug
+      buildType: Debug
+      settings:
+        ASAN: ""
+        TSAN: ""
+    debug_asan:
+      short: DebugASan
+      long: Debug with Address Sanitizer
+      buildType: Debug
+      settings:     
+        ASAN: ON
+        TSAN: ""
+    release:
+      short: Release
+      long: Optimize generated code
+      buildType: Release
+      settings:
+        ASAN: ""
+        TSAN: ""
+

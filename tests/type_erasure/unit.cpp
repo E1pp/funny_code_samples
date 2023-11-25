@@ -6,8 +6,6 @@
 
 #include <wheels/test/test_framework.hpp>
 
-#include <util/type_erasure/detail/vtable.hpp>
-
 #include <iostream>
 
 using namespace util; // NOLINT
@@ -34,17 +32,20 @@ TEST_SUITE(AnyObject)
 {
     SIMPLE_TEST(JustWorks)
     {
-        // using Any = type_erasure::AnyObject<type_erasure::EConstructorConcept::NothrowCopyConstructible, Tag<Overload<Tag<Test>, bool() noexcept>()>>;
+        using Any = type_erasure::AnyObject<
+            type_erasure::EConstructorConcept::NothrowCopyConstructible,
+            Tag<Overload<Tag<Test>,
+            bool(type_erasure::This&) noexcept>()>>;
 
-        // TestArg arg = {};
+        TestArg arg = {};
 
-        // ASSERT_TRUE(Test(arg));
+        ASSERT_TRUE(Test(arg));
 
-        // Any any{arg};
+        Any any{arg};
 
-        // ASSERT_TRUE(Test(any));
+        ASSERT_TRUE(Test(any));
 
-        // // any = AnotherTestArg{};
+        Any any_another = std::move(any);
 
         // // ASSERT_FALSE(Test(any));
 
