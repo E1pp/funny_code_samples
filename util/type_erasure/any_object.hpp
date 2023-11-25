@@ -11,6 +11,9 @@ namespace util::type_erasure {
 
 namespace detail {
 
+// TODO:
+// 1) Opt-in/Opt-out static vtable
+// 2) SBO
 template <size_t SizeSBO, size_t AlignSBO, class Allocator, EConstructorConcept Concept, class... CPOs>
 class AnyObject
     : private ErasedTagInvoker<AnyObject<SizeSBO, AlignSBO, Allocator, Concept, CPOs...>, CPOs>...
@@ -35,9 +38,9 @@ public:
         , allocator_(std::move(that.allocator_))
     {
         if (vtable_) {
-            auto move_constructor_fwd = vtable_.template Get<MoveConstructorCPO<Allocator, StorageType>>();
+            auto* mover = vtable_.template Get<MoveCPO<Allocator, StorageType>>();
+            mover(Mover<Allocator, StorageType>, std::move(that.storage_), storage_, allocator_);
 
-            move_constructor_fwd(MoveConstructor<Allocator, StorageType>, std::move(that.storage_), storage_, allocator_);
             that.vtable_ = {};
             that.storage_ = {};
         }
@@ -59,11 +62,11 @@ public:
 
         if (vtable_) {
             if constexpr (AllocTraits::propagate_on_container_move_assignment::value) {
-                auto move_constructor_fwd = vtable_.template Get<MoveConstructorCPO<Allocator, StorageType>>();
-
-                move_constructor_fwd(MoveConstructor<Allocator, StorageType>, std::move(that.storage_), storage_, allocator_);
+                auto* mover = vtable_.template Get<MoveCPO<Allocator, StorageType>>();
+                mover(Mover<Allocator, StorageType>, std::move(that.storage_), storage_, allocator_);
             } else {
-                // ???
+                auto* mover = vtable_.template Get<MoveReallocCPO<Allocator, StorageType>>();
+                mover(ReallocMover<Allocator, StorageType>, std::move(that.storage_), storage_, allocator_, std::move(that.allocator_));
             }
 
             that.vtable_ = {};
@@ -73,36 +76,38 @@ public:
         return *this;
     }
 
-//     // AnyObject(const AnyObject& that) noexcept(detail::CopyNoExcept<Concept>)
-//     //     requires detail::AddCopyConstructor<Concept>
-//     //     : vtable_(that.vtable_)
-//     // {
-//     //     if (vtable_) {
-//     //         auto copy_constructor_forwarder = vtable_.template Get<detail::CopyConstructorCPO>();
+    AnyObject(const AnyObject& that) noexcept(CopyNoExcept<Concept>)
+        requires AddCopyConstructor<Concept>
+        : vtable_(that.vtable_)
+        , allocator_(AllocTraits::select_on_container_copy_construction(that.allocator_))
+    {
+        if (vtable_) {
+            auto copier = vtable_.template Get<CopyCPO<Allocator, StorageType>>();
+            copier(Copier<Allocator, StorageType>, that.storage_, storage_, allocator_);
+        }
+    }
 
-//     //         copy_constructor_forwarder(detail::CopyConstructor, const_cast<detail::Storage&>(that.data_), data_); // NOLINT
-//     //     }
-//     // }
+    AnyObject& operator=(const AnyObject& that) noexcept(CopyNoExcept<Concept>)
+        requires AddCopyConstructor<Concept>
+    {
+        if (this == &that) {
+            return *this;
+        }
 
-//     // AnyObject& operator=(const AnyObject& that) noexcept(detail::CopyNoExcept<Concept>)
-//     //     requires detail::AddCopyConstructor<Concept>
-//     // {
-//     //     if (this == &that) {
-//     //         return *this;
-//     //     }
+        Reset();
+        vtable_ = that.vtable_;
 
-//     //     // Reset();
+        if constexpr (AllocTraits::propagate_on_container_copy_assignment::value) {
+            allocator_ = that.allocator_;
+        }
 
-//     //     // vtable_ = that.vtable_;
+        if (vtable_) {
+            auto* copier = vtable_.template Get<CopyCPO<Allocator, StorageType>>();
+            copier(Copier<Allocator, StorageType>, that.storage_, storage_, allocator_);
+        }
 
-//     //     // if (vtable_) {
-//     //     //     auto copyer = vtable_.template Get<detail::CopyConstructorCPO>();
-
-//     //     //     copyer(data_, that.data_);
-//     //     // }
-
-//     //     return *this;
-//     // }
+        return *this;
+    }
 
     ~AnyObject() noexcept
     {
@@ -147,10 +152,8 @@ private:
     void Reset() noexcept
     {
         if (vtable_) {
-            auto delete_fwd = vtable_.template Get<DeleterCPO<Allocator>>();
-
-            // void(Deleter, Storage&, Allocator&)
-            delete_fwd(Deleter<Allocator>, storage_, allocator_);
+            auto* deleter = vtable_.template Get<DeleterCPO<Allocator>>();
+            deleter(Deleter<Allocator>, storage_, allocator_);
         }
         vtable_ = {};
         storage_ = {};

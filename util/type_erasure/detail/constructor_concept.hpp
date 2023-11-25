@@ -50,8 +50,15 @@ struct InjectConstructors
     using Type = 
     PushFront<
         PushFront<
-            Pack<CPOs...>,
-            MoveConstructorCPO<Allocator, StorageType>,
+            PushFront<
+                PushFront<Pack<CPOs...>,
+                CopyCPO<Allocator, StorageType>,
+                AddCopyConstructor<Concept>
+                >,
+                MoveCPO<Allocator, StorageType>,
+                AddMoveConstructor<Concept>
+            >,
+            MoveReallocCPO<Allocator, StorageType>,
             AddMoveConstructor<Concept>
         >,
         DeleterCPO<Allocator>,
@@ -89,19 +96,44 @@ struct ConstructorBase
     // TagInvocable<DeleterCPO, Concrete&, Allocator&>
     friend void TagInvoke(DeleterCPO<Allocator>, Wrapper& wrapper, Allocator& alloc) noexcept
     {
-        wrapper.DeleteWith(alloc);
+        wrapper.Delete(alloc);
     }
 
     // TagInvocable<MoveConstructorCPO, DecayedConcrete&&, StorageType&, Allocator&>
     friend void TagInvoke(
-        MoveConstructorCPO<Allocator, StorageType>,
+        MoveCPO<Allocator, StorageType>,
         Wrapper&& from,
         StorageType& to,
         Allocator& allocator)
             noexcept(MoveNoExcept<Concept>)
                 requires(AddMoveConstructor<Concept>)
     {
-        std::move(from).MoveConstruct(to, allocator);
+        std::move(from).Move(to, allocator);
+    }
+
+    // TagInvocable<MoveReallocCPO, DecayedConcrete&&, StorageType&, Allocator&, Allocator&&>
+    friend void TagInvoke(
+        MoveReallocCPO<Allocator, StorageType>,
+        Wrapper&& from,
+        StorageType& to,
+        Allocator& allocator_to,
+        Allocator&& allocator_from)
+            noexcept(MoveNoExcept<Concept>)
+                requires(AddMoveConstructor<Concept>)
+    {
+        std::move(from).MoveRealloc(to, allocator_to, std::move(allocator_from));
+    }
+
+    // TagInvocable<CopyCPO, const DecayedConcrete&, StorageType&, Allocator&>
+    friend void TagInvoke(
+        CopyCPO<Allocator, StorageType>,
+        const Wrapper& from,
+        StorageType& to,
+        Allocator& allocator)
+            noexcept(CopyNoExcept<Concept>)
+                requires(AddCopyConstructor<Concept>)
+    {
+        from.Copy(to, allocator);
     }
 };
 

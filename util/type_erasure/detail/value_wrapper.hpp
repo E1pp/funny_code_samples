@@ -30,6 +30,7 @@ struct ValueWrapper final
     using Concrete = DecayedConcrete;
     using StorageType = StorageT;
     using Traits = std::allocator_traits<Allocator>;
+    using StorTraits = StorageTraits<ValueWrapper, StorageType&>;
 
     template <class... Args>
         requires std::constructible_from<Concrete, Args...>
@@ -38,15 +39,30 @@ struct ValueWrapper final
         : value_(std::forward<Args>(args)...)
     { }
 
-    void DeleteWith(Allocator& allocator) & noexcept
+    void Delete(Allocator& allocator) & noexcept
     {
         Traits::template destroy<ValueWrapper>(allocator, this);
         Traits::deallocate(allocator, reinterpret_cast<std::byte*>(this), sizeof(ValueWrapper));
     }
 
-    void MoveConstruct(StorageType& to, Allocator&) &&
+    void Move(StorageType& to, Allocator&) &&
     {
         to = static_cast<void*>(this);
+    }
+
+    void MoveRealloc(StorageType& to, Allocator& alloc_to, Allocator&& alloc_from)
+    {
+        to = Traits::allocate(alloc_to, sizeof(ValueWrapper));
+
+        Traits::template construct<ValueWrapper>(alloc_to, &StorTraits::AsConcrete(to), std::move(*this));
+
+        Delete(alloc_from);
+    }
+
+    void Copy(StorageType& to, Allocator& allocator) const &
+    {
+        to = Traits::allocate(allocator, sizeof(ValueWrapper));
+        Traits::template construct<ValueWrapper>(allocator, &StorTraits::AsConcrete(to), *this);
     }
 
     Concrete& Unwrap() & noexcept

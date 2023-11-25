@@ -6,7 +6,15 @@
 
 #include <util/common/tag_invoke/typed_cpo.hpp>
 
+#include <wheels/core/assert.hpp>
+
 namespace util::type_erasure::detail {
+
+/////////////////////////////////////////////////////////////////////////
+
+struct EmptyAnyException
+    : public std::exception
+{ };
 
 /////////////////////////////////////////////////////////////////////////
 
@@ -34,7 +42,11 @@ struct ErasedTagInvoker<Any, CPO, Ret(FirstArg, Args...) noexcept(NoExcept)>
             { any.GetObjectStorage() };
         });
 
-        auto* function = any_object.GetVTable()->template Get<CPO>();
+        auto* vtable = any_object.GetVTable();
+
+        WHEELS_VERIFY(*vtable, "Empty Any!");
+
+        auto* function = vtable->template Get<CPO>();
 
         return function(cpo, any_object.GetObjectStorage(), std::forward<Args>(args)...);
     }

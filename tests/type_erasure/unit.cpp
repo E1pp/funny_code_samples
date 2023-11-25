@@ -45,14 +45,9 @@ TEST_SUITE(AnyObject)
 
         ASSERT_TRUE(Test(any));
 
-        Any any_another = std::move(any);
+        any = AnotherTestArg{};
 
-        // // ASSERT_FALSE(Test(any));
-
-        // // const Any& ref = any;
-
-        // // Any any2(ref);
-        // // Any any3(std::move(any2));
+        ASSERT_FALSE(Test(any));
     }
 }
 

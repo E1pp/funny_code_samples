@@ -27,48 +27,58 @@ inline constexpr DeleterCPO<Allocator> Deleter = {}; // NOLINT
 /////////////////////////////////////////////////////////////////////////
 
 template <class Allocator, class StorageType>
-struct MoveConstructorCPO {
+struct MoveCPO {
     using Signature = void(This&&, StorageType&, Allocator&);
 
     template <class DecayedConcrete>
-        requires TagInvocable<MoveConstructorCPO, DecayedConcrete&&, StorageType&, Allocator&>
+        requires TagInvocable<MoveCPO, DecayedConcrete&&, StorageType&, Allocator&>
     void operator()(DecayedConcrete&& from, StorageType& to, Allocator& allocator) const
-        noexcept(NothrowTagInvocable<MoveConstructorCPO, DecayedConcrete&&, StorageType&, Allocator&>)
+        noexcept(NothrowTagInvocable<MoveCPO, DecayedConcrete&&, StorageType&, Allocator&>)
     {
         return TagInvoke(*this, std::move(from), to, allocator);
     }
 };
 
 template <class Allocator, class StorageType>
-inline constexpr MoveConstructorCPO<Allocator, StorageType> MoveConstructor = {}; // NOLINT
+inline constexpr MoveCPO<Allocator, StorageType> Mover = {}; // NOLINT
 
-// inline constexpr struct MoveConstructorCPO {
-//     using Signature = void(Storage&); // void(Storage& to)
+/////////////////////////////////////////////////////////////////////////
 
-//     template <class Concrete>
-//         requires TagInvocable<MoveConstructorCPO, Concrete, Storage&>
-//     void operator()(Concrete&& conc, Storage& to) const
-//         noexcept(NothrowTagInvocable<MoveConstructorCPO, Concrete, Storage&>)
-//     {
-//         return TagInvoke(*this, std::move(conc), to);
-//     }
-// } MoveConstructor = {}; // NOLINT
+template <class Allocator, class StorageType>
+struct MoveReallocCPO {
+    using Signature = void(This&&, StorageType&, Allocator&, Allocator&&);
 
-// /////////////////////////////////////////////////////////////////////////
+    template <class DecayedConcrete>
+        requires TagInvocable<MoveReallocCPO, DecayedConcrete&&, StorageType&, Allocator&, Allocator&&>
+    void operator()(DecayedConcrete&& from, StorageType& to, Allocator& allocator_to, Allocator&& allocator_from) const
+        noexcept(NothrowTagInvocable<MoveReallocCPO, DecayedConcrete&&, StorageType&, Allocator&, Allocator&&>)
+    {
+        return TagInvoke(*this, std::move(from), to, allocator_to, std::move(allocator_from));
+    }
+};
 
-// inline constexpr struct MoverAssignerCPO {
-//     using Signature = void(Storage&);
+template <class Allocator, class StorageType>
+inline constexpr MoveReallocCPO<Allocator, StorageType> ReallocMover = {}; // NOLINT
 
-//     template <class Concrete>
-//         requires TagInvocable<MoverAssignerCPO, Concrete, void*>
-//     void operator()(Concrete&& conc, void* to) const
-//         noexcept(NothrowTagInvocable<MoverAssignerCPO, Concrete, void*>)
-//     {
-//         return TagInvoke(*this, std::move(conc), to);
-//     }
-// } MoverAssigner = {}; // NOLINT
+/////////////////////////////////////////////////////////////////////////
 
-// /////////////////////////////////////////////////////////////////////////
+template <class Allocator, class StorageType>
+struct CopyCPO {
+    using Signature = void(const This&, StorageType&, Allocator&);
+
+    template <class DecayedConcrete>
+        requires TagInvocable<CopyCPO, const DecayedConcrete&, StorageType&, Allocator&>
+    void operator()(const DecayedConcrete& from, StorageType& to, Allocator& allocator) const
+        noexcept(NothrowTagInvocable<CopyCPO, const DecayedConcrete&, StorageType&, Allocator&>)
+    {
+        return TagInvoke(*this, from, to, allocator);
+    }
+};
+
+template <class Allocator, class StorageType>
+inline constexpr CopyCPO<Allocator, StorageType> Copier = {}; // NOLINT
+
+/////////////////////////////////////////////////////////////////////////
 
 // inline constexpr struct CopyConstructorCPO {
 //     using Signature = void(Storage&);
