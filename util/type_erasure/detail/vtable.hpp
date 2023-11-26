@@ -114,19 +114,9 @@ public:
         : table_(&table)
     { }
 
-    constexpr Table& operator*() noexcept
-    {
-        return *table_;
-    }
-
     constexpr const Table& operator*() const noexcept
     {
         return *table_;
-    }
-
-    constexpr Table* operator->() noexcept
-    {
-        return table_;
     }
 
     constexpr const Table* operator->() const noexcept
@@ -145,13 +135,11 @@ public:
 
     void Reset() noexcept
     {
-        if (table_) {
-            *table_ = {};
-        }
+        table_ = nullptr;
     }
 
 private:
-    Table* table_ = nullptr;
+   const Table* table_ = nullptr;
 };
 
 template <class Table>

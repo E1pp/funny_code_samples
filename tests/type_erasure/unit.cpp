@@ -432,6 +432,37 @@ TEST_SUITE(AnyObject)
         [[maybe_unused]] const auto& anyref = any;
 
         [[maybe_unused]] const auto& cref = anyref.template Get<TOL5>();
+
+        [[maybe_unused]] const auto& cref2 = Get<TOL5>(anyref);
+    }
+
+    SIMPLE_TEST(StaticVTable)
+    {
+        using Any = fine_tuning::AnyObject<
+            0, 
+            0, 
+            EConstructorConcept::NothrowCopyConstructible, 
+            true, 
+            std::allocator<std::byte>,
+            Overload<Tag<Test>, std::optional<int>(This&&) noexcept>>;
+        using NonStaticAny = fine_tuning::AnyObject<0, 0, EConstructorConcept::NothrowCopyConstructible, false, std::allocator<std::byte>>;
+
+        std::cout << sizeof(Any) << '\n';
+        std::cout << sizeof(NonStaticAny) << '\n'; 
+
+        static_assert(sizeof(Any) < sizeof(NonStaticAny));
+
+        Any any = TOL5{};
+
+        Any any2 = TOL5{.v = 6};
+
+        any = std::move(any2);
+
+        Any any3 = any;
+
+        any3.Emplace(TOL5{.v = 7});
+
+        ASSERT_TRUE(Test(std::move(any3)));
     }
 }
 

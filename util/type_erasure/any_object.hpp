@@ -199,7 +199,7 @@ public:
         return detail::StorageTraits<DecayedConcrete, StorageType>::AsConcrete(storage_);
     }
 
-private:
+public:
     using AllocTraits = std::allocator_traits<Allocator>;
     using StorageType = detail::Storage<SizeSBO, AlignSBO>;
     using VTableType = detail::AugmentedVTable<Concept, Allocator, StorageType, CPOs...>;

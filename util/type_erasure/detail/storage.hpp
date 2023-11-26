@@ -14,7 +14,10 @@ template <size_t SizeSBO, size_t AlignSBO>
 class Storage
 {
 public:
-    using StaticStorage = std::aligned_storage_t<SizeSBO, AlignSBO>;
+    static constexpr size_t kPaddedSize = SizeSBO < sizeof(void*) ? sizeof(void*) : SizeSBO;
+    static constexpr size_t kPaddedAlign = AlignSBO < alignof(void*) ? alignof(void*) : AlignSBO;
+
+    using StaticStorage = std::aligned_storage_t<kPaddedSize, kPaddedAlign>;
 
     union {
         [[no_unique_address]] std::monostate empty = {};
@@ -25,7 +28,9 @@ public:
     template <class DecayedConcrete>
     static constexpr bool IsStatic()
     {
-        return sizeof(DecayedConcrete) <= SizeSBO;
+        return 
+            sizeof(DecayedConcrete) <= kPaddedSize &&
+            alignof(DecayedConcrete) <= kPaddedAlign;
     }
 
     Storage() noexcept = default;
