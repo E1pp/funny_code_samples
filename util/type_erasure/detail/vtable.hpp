@@ -6,7 +6,7 @@
 
 #include <util/common/tag_invoke/typed_cpo.hpp>
 
-namespace util::type_erasure::detail {
+namespace util::detail {
 
 /////////////////////////////////////////////////////////////////////////
 
@@ -104,4 +104,4 @@ private:
 
 /////////////////////////////////////////////////////////////////////////
 
-} // namespace util::type_erasure::detail
+} // namespace util::detail

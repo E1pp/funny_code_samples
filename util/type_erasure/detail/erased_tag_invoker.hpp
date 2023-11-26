@@ -8,7 +8,7 @@
 
 #include <wheels/core/assert.hpp>
 
-namespace util::type_erasure::detail {
+namespace util::detail {
 
 /////////////////////////////////////////////////////////////////////////
 
@@ -48,10 +48,10 @@ struct ErasedTagInvoker<Any, CPO, Ret(FirstArg, Args...) noexcept(NoExcept)>
 
         auto* function = vtable->template Get<CPO>();
 
-        return function(cpo, any_object.GetObjectStorage(), std::forward<Args>(args)...);
+        return function(cpo, std::forward<Replaced>(any_object).GetObjectStorage(), std::forward<Args>(args)...);
     }
 };
 
 /////////////////////////////////////////////////////////////////////////
 
-} // namespace util::type_erasure::detail
+} // namespace util::detail

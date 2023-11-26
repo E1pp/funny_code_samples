@@ -2,7 +2,7 @@
 
 #include <variant>
 
-namespace util::type_erasure::detail {
+namespace util::detail {
 
 /////////////////////////////////////////////////////////////////////////
 
@@ -46,4 +46,4 @@ struct StorageTraits<DecayedConcrete, StorageType&&>
 
 /////////////////////////////////////////////////////////////////////////
 
-} // namespace util::type_erasure::detail
+} // namespace util::detail

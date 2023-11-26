@@ -7,7 +7,7 @@
 
 #include <memory>
 
-namespace util::type_erasure {
+namespace util {
 
 /////////////////////////////////////////////////////////////////////////
 
@@ -25,24 +25,41 @@ enum class EConstructorConcept : int
 namespace detail {
 
 template <EConstructorConcept Concept>
-concept AddMoveConstructor = (static_cast<int>(Concept) & static_cast<int>(EConstructorConcept::MoveConstructible)) == 1;
+concept AddMoveConstructor = (static_cast<int>(Concept) & (1 << 0)) == 1;
 
 template <EConstructorConcept Concept>
-concept MoveNoExcept = 
-    AddMoveConstructor<Concept> &&
-    (((static_cast<int>(Concept) & static_cast<int>(EConstructorConcept::NothrowMoveConstructible)) >> 1) == 1);
+concept MoveNoExcept = ((static_cast<int>(Concept) & (1 << 1)) >> 1) == 1;
 
 template <EConstructorConcept Concept>
-concept AddCopyConstructor = ((static_cast<int>(Concept) & static_cast<int>(EConstructorConcept::CopyConstructible)) >> 2) == 1;
+concept AddCopyConstructor = ((static_cast<int>(Concept) & (1 << 2)) >> 2) == 1;
 
 template <EConstructorConcept Concept>
-concept CopyNoExcept = 
-    AddCopyConstructor<Concept> &&
-    (((static_cast<int>(Concept) & static_cast<int>(EConstructorConcept::NothrowMoveConstructible)) >> 3) == 1);
+concept CopyNoExcept = ((static_cast<int>(Concept) & (1 << 3)) >> 3) == 1;
 
 /////////////////////////////////////////////////////////////////////////
 
 namespace detail {
+
+template <class T>
+concept AnyMovable = std::movable<T>;
+
+template <class T>
+concept AnyNTMovable = 
+    AnyMovable<T> &&
+    std::is_nothrow_move_constructible_v<T> &&
+    std::is_nothrow_move_assignable_v<T>;
+
+template <class T>
+concept AnyCopyable = std::copyable<T>;
+
+template <class T>
+concept AnyNTCopyable = 
+    AnyCopyable<T> &&
+    AnyNTMovable<T> &&
+    std::is_nothrow_copy_constructible_v<T> &&
+    std::is_nothrow_copy_assignable_v<T>;
+
+/////////////////////////////////////////////////////////////////////////
 
 template <EConstructorConcept Concept, class Allocator, class StorageType, class... CPOs>
 struct InjectConstructors
@@ -51,9 +68,9 @@ struct InjectConstructors
     PushFront<
         PushFront<
             PushFront<
-                PushFront<Pack<CPOs...>,
-                CopyCPO<Allocator, StorageType>,
-                AddCopyConstructor<Concept>
+                    PushFront<Pack<CPOs...>,
+                    CopyCPO<Allocator, StorageType>,
+                    AddCopyConstructor<Concept>
                 >,
                 MoveCPO<Allocator, StorageType>,
                 AddMoveConstructor<Concept>
@@ -78,6 +95,15 @@ struct AugmentedVTableImpl<Pack<PArgs...>, StorageType>
 };
 
 } // namespace detail
+
+/////////////////////////////////////////////////////////////////////////
+
+template <class T, EConstructorConcept Concept>
+concept AccordinglyConstructible = 
+    (!AddMoveConstructor<Concept> || detail::AnyMovable<T>   ) &&
+    (!MoveNoExcept<Concept>       || detail::AnyNTMovable<T> ) &&
+    (!AddCopyConstructor<Concept> || detail::AnyCopyable<T>  ) &&
+    (!CopyNoExcept<Concept>       || detail::AnyNTCopyable<T>);
 
 /////////////////////////////////////////////////////////////////////////
 
@@ -141,4 +167,4 @@ struct ConstructorBase
 
 /////////////////////////////////////////////////////////////////////////
 
-} // namespace util::type_erasure
+} // namespace util

@@ -3,20 +3,23 @@
 #include "detail/value_wrapper.hpp"
 #include "detail/erased_tag_invoker.hpp"
 
-#include <memory>
+#include <util/common/meta/is_instance.hpp>
 
-namespace util::type_erasure {
+#include <memory>
+#include <optional>
+
+namespace util {
 
 /////////////////////////////////////////////////////////////////////////
 
-namespace detail {
+namespace fine_tuning {
 
 // TODO:
 // 1) Opt-in/Opt-out static vtable
 // 2) SBO
 template <size_t SizeSBO, size_t AlignSBO, class Allocator, EConstructorConcept Concept, class... CPOs>
 class AnyObject
-    : private ErasedTagInvoker<AnyObject<SizeSBO, AlignSBO, Allocator, Concept, CPOs...>, CPOs>...
+    : private detail::ErasedTagInvoker<AnyObject<SizeSBO, AlignSBO, Allocator, Concept, CPOs...>, CPOs>...
 {
 public:
     explicit AnyObject(Allocator alloc = {}) noexcept
@@ -24,30 +27,46 @@ public:
     { }
 
     template <class Concrete>
+        requires 
+            (!std::same_as<std::remove_cvref_t<Concrete>, AnyObject>) &&
+            (std::constructible_from<std::remove_cvref_t<Concrete>, Concrete>) &&
+            (detail::AccordinglyConstructible<std::remove_cvref_t<Concrete>, Concept>) &&
+            (detail::TypeErasable<Concrete, CPOs...>)
     AnyObject(Concrete&& conc, Allocator alloc = {}) // NOLINT
+        noexcept(std::is_nothrow_constructible_v<std::remove_cvref_t<Concrete>, Concrete>)
         : AnyObject(std::move(alloc))
     {
-        Set(std::forward<Concrete>(conc));
+        Set<Concrete>(std::forward<Concrete>(conc));
     }
 
-    // Some other constructors? Inplace?
+    template <class Concrete, class... Args>
+        requires 
+            (!std::same_as<std::remove_cvref_t<Concrete>, AnyObject>) &&
+            (detail::AccordinglyConstructible<std::remove_cvref_t<Concrete>, Concept>) &&
+            (detail::TypeErasable<Concrete, CPOs...>)
+    AnyObject(std::in_place_type_t<Concrete>, Allocator alloc, Args&&... args) // NOLINT
+        noexcept(std::is_nothrow_constructible_v<std::remove_cvref_t<Concrete>, Args...>)
+        : AnyObject(std::move(alloc))
+    {
+        Set<Concrete>(std::forward<Args>(args)...);
+    }
 
-    AnyObject(AnyObject&& that) noexcept(MoveNoExcept<Concept>) 
-        requires AddMoveConstructor<Concept>
+    AnyObject(AnyObject&& that) noexcept(detail::MoveNoExcept<Concept>) 
+        requires detail::AddMoveConstructor<Concept>
         : vtable_(that.vtable_)
         , allocator_(std::move(that.allocator_))
     {
         if (vtable_) {
-            auto* mover = vtable_.template Get<MoveCPO<Allocator, StorageType>>();
-            mover(Mover<Allocator, StorageType>, std::move(that.storage_), storage_, allocator_);
+            auto* mover = vtable_.template Get<detail::MoveCPO<Allocator, StorageType>>();
+            mover(detail::Mover<Allocator, StorageType>, std::move(that.storage_), storage_, allocator_);
 
             that.vtable_ = {};
             that.storage_ = {};
         }
     }
 
-    AnyObject& operator= (AnyObject&& that) noexcept(MoveNoExcept<Concept>)
-        requires AddMoveConstructor<Concept>
+    AnyObject& operator= (AnyObject&& that) noexcept(detail::MoveNoExcept<Concept>)
+        requires detail::AddMoveConstructor<Concept>
     {
         if (this == &that) {
             return *this;
@@ -62,11 +81,11 @@ public:
 
         if (vtable_) {
             if constexpr (AllocTraits::propagate_on_container_move_assignment::value) {
-                auto* mover = vtable_.template Get<MoveCPO<Allocator, StorageType>>();
-                mover(Mover<Allocator, StorageType>, std::move(that.storage_), storage_, allocator_);
+                auto* mover = vtable_.template Get<detail::MoveCPO<Allocator, StorageType>>();
+                mover(detail::Mover<Allocator, StorageType>, std::move(that.storage_), storage_, allocator_);
             } else {
-                auto* mover = vtable_.template Get<MoveReallocCPO<Allocator, StorageType>>();
-                mover(ReallocMover<Allocator, StorageType>, std::move(that.storage_), storage_, allocator_, std::move(that.allocator_));
+                auto* mover = vtable_.template Get<detail::MoveReallocCPO<Allocator, StorageType>>();
+                mover(detail::ReallocMover<Allocator, StorageType>, std::move(that.storage_), storage_, allocator_, std::move(that.allocator_));
             }
 
             that.vtable_ = {};
@@ -76,19 +95,19 @@ public:
         return *this;
     }
 
-    AnyObject(const AnyObject& that) noexcept(CopyNoExcept<Concept>)
-        requires AddCopyConstructor<Concept>
+    AnyObject(const AnyObject& that) noexcept(detail::CopyNoExcept<Concept>)
+        requires detail::AddCopyConstructor<Concept>
         : vtable_(that.vtable_)
         , allocator_(AllocTraits::select_on_container_copy_construction(that.allocator_))
     {
         if (vtable_) {
-            auto copier = vtable_.template Get<CopyCPO<Allocator, StorageType>>();
-            copier(Copier<Allocator, StorageType>, that.storage_, storage_, allocator_);
+            auto copier = vtable_.template Get<detail::CopyCPO<Allocator, StorageType>>();
+            copier(detail::Copier<Allocator, StorageType>, that.storage_, storage_, allocator_);
         }
     }
 
-    AnyObject& operator=(const AnyObject& that) noexcept(CopyNoExcept<Concept>)
-        requires AddCopyConstructor<Concept>
+    AnyObject& operator=(const AnyObject& that) noexcept(detail::CopyNoExcept<Concept>)
+        requires detail::AddCopyConstructor<Concept>
     {
         if (this == &that) {
             return *this;
@@ -102,11 +121,28 @@ public:
         }
 
         if (vtable_) {
-            auto* copier = vtable_.template Get<CopyCPO<Allocator, StorageType>>();
-            copier(Copier<Allocator, StorageType>, that.storage_, storage_, allocator_);
+            auto* copier = vtable_.template Get<detail::CopyCPO<Allocator, StorageType>>();
+            copier(detail::Copier<Allocator, StorageType>, that.storage_, storage_, allocator_);
         }
 
         return *this;
+    }
+
+    constexpr explicit operator bool() const noexcept
+    {
+        return static_cast<bool>(vtable_);
+    }
+
+    template <class Concrete>
+        requires
+            (!std::same_as<std::remove_cvref_t<Concrete>, AnyObject>) &&
+            (std::constructible_from<std::remove_cvref_t<Concrete>, Concrete>) &&
+            (detail::AccordinglyConstructible<std::remove_cvref_t<Concrete>, Concept>) &&
+            (detail::TypeErasable<Concrete, CPOs...>)
+    void Emplace(Concrete&& conc) 
+        noexcept(std::is_nothrow_constructible_v<std::remove_cvref_t<Concrete>, Concrete>)
+    {
+        Set<Concrete>(std::forward<Concrete>(conc));
     }
 
     ~AnyObject() noexcept
@@ -116,15 +152,15 @@ public:
 
 private:
     using AllocTraits = std::allocator_traits<Allocator>;
-    using StorageType = Storage<SizeSBO, AlignSBO>;
-    using VTableType = AugmentedVTable<Concept, Allocator, StorageType, CPOs...>;
+    using StorageType = detail::Storage<SizeSBO, AlignSBO>;
+    using VTableType = detail::AugmentedVTable<Concept, Allocator, StorageType, CPOs...>;
 
     StorageType storage_;
     VTableType vtable_;
     [[no_unique_address]] Allocator allocator_;
 
     template <class Derived, TypedCPO CPO, Signature Sig>
-    friend struct ErasedTagInvoker;
+    friend struct detail::ErasedTagInvoker;
 
     StorageType& GetObjectStorage() & noexcept
     {
@@ -138,9 +174,6 @@ private:
 
     StorageType&& GetObjectStorage() && noexcept
     {
-        // Make sure to use vtable before calling this
-        vtable_ = {};
-
         return std::move(storage_);
     }
 
@@ -152,19 +185,20 @@ private:
     void Reset() noexcept
     {
         if (vtable_) {
-            auto* deleter = vtable_.template Get<DeleterCPO<Allocator>>();
-            deleter(Deleter<Allocator>, storage_, allocator_);
+            auto* deleter = vtable_.template Get<detail::DeleterCPO<Allocator>>();
+            deleter(detail::Deleter<Allocator>, storage_, allocator_);
         }
         vtable_ = {};
         storage_ = {};
     }
 
-    template <class Concrete>
-    void Set(Concrete&& concrete)
+    template <class Concrete, class... Args>
+        requires std::constructible_from<Concrete, Args...>
+    void Set(Args&&... args)
     {
         using DecayedConcrete = Decay<Concrete>;
-        using Wrapper = ValueWrapper<Concept, DecayedConcrete, Allocator, StorageType, CPOs...>;
-        using StorTraits = StorageTraits<Wrapper, StorageType&>;
+        using Wrapper = detail::ValueWrapper<Concept, DecayedConcrete, Allocator, StorageType, CPOs...>;
+        using StorTraits = detail::StorageTraits<Wrapper, StorageType&>;
 
         Reset();
 
@@ -172,11 +206,11 @@ private:
         vtable_ = vtable;
 
         storage_ = AllocTraits::allocate(allocator_, sizeof(Wrapper));
-        AllocTraits::template construct<Wrapper>(allocator_, &StorTraits::AsConcrete(storage_), std::forward<Concrete>(concrete));
+        AllocTraits::template construct<Wrapper>(allocator_, &StorTraits::AsConcrete(storage_), std::forward<Args>(args)...);
     }
 };
 
-} // namespace detail
+} // namespace fine_tuning
 
 /////////////////////////////////////////////////////////////////////////
 
@@ -185,6 +219,6 @@ private:
 using detail::This;
 
 template <EConstructorConcept Concept, class... CPOs>
-using AnyObject = detail::AnyObject<63, 64, std::allocator<std::byte>, Concept, CPOs...>;
+using AnyObject = fine_tuning::AnyObject<63, 64, std::allocator<std::byte>, Concept, CPOs...>;
 
-} // namespace util::type_erasure
+} // namespace util

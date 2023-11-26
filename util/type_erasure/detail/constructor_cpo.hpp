@@ -4,7 +4,7 @@
 
 #include <util/common/tag_invoke/tag_invoke.hpp>
 
-namespace util::type_erasure::detail {
+namespace util::detail {
 
 /////////////////////////////////////////////////////////////////////////
 
@@ -108,4 +108,4 @@ inline constexpr CopyCPO<Allocator, StorageType> Copier = {}; // NOLINT
 
 /////////////////////////////////////////////////////////////////////////
 
-} // namespace util::type_erasure::detail
+} // namespace util::detail

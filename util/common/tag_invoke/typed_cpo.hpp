@@ -13,16 +13,13 @@ namespace detail {
 /////////////////////////////////////////////////////////////////////////
 
 template <std::default_initializable CPO, Signature Sig>
-struct OverloadedCPO
+struct Overload
 {
     using Signature = Sig;
 
-    constexpr OverloadedCPO() noexcept = default;
-    constexpr explicit OverloadedCPO(CPO) noexcept { };
+    constexpr Overload() noexcept = default;
+    constexpr explicit Overload(CPO) noexcept { };
 };
-
-template <std::default_initializable CPO, Signature Sig>
-inline constexpr OverloadedCPO<CPO, Sig> __Overload = {}; // NOLINT
 
 /////////////////////////////////////////////////////////////////////////
 
@@ -33,7 +30,7 @@ struct RawCPOImpl
 };
 
 template <class CPO, class Sig>
-struct RawCPOImpl<OverloadedCPO<CPO, Sig>>
+struct RawCPOImpl<Overload<CPO, Sig>>
 {
     using Type = CPO;
 };
@@ -54,11 +51,7 @@ concept TypedCPO =
 
 /////////////////////////////////////////////////////////////////////////
 
-template <std::default_initializable CPO, Signature Sig>
-inline constexpr auto Overload([[maybe_unused]] CPO cpo = {}) noexcept
-{
-    return detail::__Overload<CPO, Sig>;
-}
+using detail::Overload;
 
 /////////////////////////////////////////////////////////////////////////
 

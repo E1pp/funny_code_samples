@@ -3,7 +3,7 @@
 #include "constructor_concept.hpp"
 #include "wrapped_tag_invoker.hpp"
 
-namespace util::type_erasure::detail {
+namespace util::detail {
 
 /////////////////////////////////////////////////////////////////////////
 
@@ -85,4 +85,4 @@ struct ValueWrapper final
 
 /////////////////////////////////////////////////////////////////////////
 
-} // namespace util::type_erasure::detail
+} // namespace util::detail

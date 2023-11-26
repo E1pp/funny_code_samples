@@ -2,7 +2,8 @@
 
 #include <util/common/meta/decay.hpp>
 
-#include <util/common/tag_invoke/signature.hpp>
+#include <util/common/tag_invoke/tag_invoke.hpp>
+#include <util/common/tag_invoke/typed_cpo.hpp>
 
 #include <util/common/type_pack/erase.hpp>
 #include <util/common/type_pack/first_of.hpp>
@@ -10,7 +11,7 @@
 #include <util/common/type_pack/replace_all.hpp>
 #include <util/common/type_pack/to_pack.hpp>
 
-namespace util::type_erasure::detail {
+namespace util::detail {
 
 /////////////////////////////////////////////////////////////////////////
 
@@ -41,6 +42,28 @@ concept SingleInsertionOfThis =
     FirstArgumentLikeThis<Sig> &&
     !FoldOr<detail::LikeThis, PopFront<SigToPack<Sig>>>;
 
+/////////////////////////////////////////////////////////////////////////
+
+template <class Implementor, TypedCPO CPO, Signature Sig = typename CPO::Signature>
+struct TypeErasableCPO
+    : public std::false_type
+{ };
+
+template <
+    class Implementor,
+    TypedCPO CPO,
+    class Ret,
+    class FirstArg,
+    bool NoExcept,
+    class... Args
+    >
+struct TypeErasableCPO<Implementor, CPO, Ret(FirstArg, Args...) noexcept(NoExcept)>
+    : public std::bool_constant<
+        NoExcept ? 
+        NothrowTagInvocable<RawCPO<CPO>, Replace<Implementor, FirstArg>, Args...> :
+        TagInvocable<RawCPO<CPO>, Replace<Implementor, FirstArg>, Args...>>
+{ };
+
 } // namespace detail
 
 /////////////////////////////////////////////////////////////////////////
@@ -50,4 +73,9 @@ concept TypeErasableSignature = detail::SingleInsertionOfThis<Sig>;
 
 /////////////////////////////////////////////////////////////////////////
 
-} // namespace util::type_erasure::detail
+template <class Implementor, class... CPOs>
+concept TypeErasable = (detail::TypeErasableCPO<Implementor, CPOs>::value && ...);
+
+/////////////////////////////////////////////////////////////////////////
+
+} // namespace util::detail

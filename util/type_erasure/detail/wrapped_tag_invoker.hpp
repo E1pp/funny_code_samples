@@ -4,7 +4,7 @@
 
 #include <util/common/tag_invoke/typed_cpo.hpp>
 
-namespace util::type_erasure::detail {
+namespace util::detail {
 
 /////////////////////////////////////////////////////////////////////////
 
@@ -25,16 +25,10 @@ struct WrappedTagInvoker<Derived, CPO, Ret(FirstArg, Args...) noexcept(NoExcept)
 
     friend Ret TagInvoke(RawCPO<CPO> cpo, Replaced wrapper, Args... args) noexcept(NoExcept)
     {
-        static_assert(requires (Derived& wrapper) {
-            typename Derived::Concrete;
-
-            { wrapper.Unwrap() } -> std::same_as<Replace<typename Derived::Concrete, Replaced>>;
-        });
-
-        return cpo(wrapper.Unwrap(), std::forward<Args>(args)...);
+        return cpo(std::forward<Replaced>(wrapper).Unwrap(), std::forward<Args>(args)...);
     }
 };
 
 /////////////////////////////////////////////////////////////////////////
 
-} // namespace util::type_erasure::detail
+} // namespace util::detail
