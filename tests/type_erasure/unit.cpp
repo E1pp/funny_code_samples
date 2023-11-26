@@ -109,6 +109,13 @@ struct TOL5
     std::optional<int> v;
 };
 
+struct TOL6
+{
+    friend void TagInvoke(Tag<Test>, TOL6&, MoveOnly<true>&&) noexcept
+    {
+    }
+};
+
 template <size_t Padding>
 class Checker
 {
@@ -384,6 +391,18 @@ TEST_SUITE(AnyObject)
 
         auto ret2 = Test(std::move(any));
         ASSERT_FALSE(ret2);
+    }
+
+    SIMPLE_TEST(MoveAsArg)
+    {
+        using Any = AnyObject<
+            EConstructorConcept::NothrowCopyConstructible,
+            Overload<Tag<Test>, void(This&, MoveOnly<true>&&) noexcept>
+        >;
+
+        Any any = TOL6{};
+
+        Test(any, MoveOnly<true>{});
     }
 
     SIMPLE_TEST(Ambiguous)
