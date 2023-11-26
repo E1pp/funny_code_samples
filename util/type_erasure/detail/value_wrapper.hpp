@@ -30,7 +30,8 @@ struct ValueWrapper final
     using Concrete = DecayedConcrete;
     using StorageType = StorageT;
     using Traits = std::allocator_traits<Allocator>;
-    using StorTraits = StorageTraits<ValueWrapper, StorageType>;
+
+    static constexpr bool IsStatic = StorageType::template IsStatic<ValueWrapper>; // NOLINT
 
     template <class... Args>
         requires std::constructible_from<Concrete, Args...>
@@ -43,17 +44,20 @@ struct ValueWrapper final
     {
         Traits::template destroy<ValueWrapper>(allocator, this);
 
-        if constexpr (!StorTraits::IsStatic) {
+        if constexpr (!IsStatic) {
             Traits::deallocate(allocator, reinterpret_cast<std::byte*>(this), sizeof(ValueWrapper));
         }
     }
 
     void Move(StorageType& to, Allocator& allocator) &&
     {
-        if constexpr (StorTraits::IsStatic) {
-            to.Set(typename StorTraits::Static{});
+        if constexpr (IsStatic) {
+            to.Set();
 
-            Traits::template construct<ValueWrapper>(allocator, &StorTraits::AsConcrete(to), std::move(*this));
+            Traits::template construct<ValueWrapper>(
+                allocator, 
+                &to.template AsConcrete<ValueWrapper>(),
+                std::move(*this));
             Traits::template destroy<ValueWrapper>(allocator, this);
         } else {
             to.Set(static_cast<void*>(this));
@@ -62,26 +66,32 @@ struct ValueWrapper final
 
     void MoveRealloc(StorageType& to, Allocator& alloc_to, Allocator&& alloc_from)
     {
-        if constexpr (StorTraits::IsStatic) {
-            to.Set(typename StorTraits::Static{});
+        if constexpr (IsStatic) {
+            to.Set();
         } else {
             to.Set(Traits::allocate(alloc_to, sizeof(ValueWrapper)));
         }
 
-        Traits::template construct<ValueWrapper>(alloc_to, &StorTraits::AsConcrete(to), std::move(*this));
+        Traits::template construct<ValueWrapper>(
+            alloc_to,
+            &to.template AsConcrete<ValueWrapper>(),
+            std::move(*this));
 
         Delete(alloc_from);
     }
 
     void Copy(StorageType& to, Allocator& allocator) const &
     {
-        if constexpr (StorTraits::IsStatic) {
-            to.Set(typename StorTraits::Static{});
+        if constexpr (IsStatic) {
+            to.Set();
         } else {
             to.Set(Traits::allocate(allocator, sizeof(ValueWrapper)));
         }
         
-        Traits::template construct<ValueWrapper>(allocator, &StorTraits::AsConcrete(to), *this);
+        Traits::template construct<ValueWrapper>(
+            allocator,
+            &to.template AsConcrete<ValueWrapper>(),
+            *this);
     }
 
     Concrete& Unwrap() & noexcept

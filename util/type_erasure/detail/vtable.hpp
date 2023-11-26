@@ -49,8 +49,9 @@ public:
             Args... args) 
             noexcept(NoExcept) -> Ret
         {
-            using Traits = StorageTraits<DecayedConcrete, StorageType>;
-            return cpo(Traits::AsConcrete(std::forward<Replaced>(storage)), std::forward<Args>(args)...);
+            return cpo(
+                std::forward<Replaced>(storage).template AsConcrete<DecayedConcrete>(),
+                std::forward<Args>(args)...);
         });
     }
 

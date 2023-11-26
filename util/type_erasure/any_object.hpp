@@ -22,7 +22,6 @@ namespace fine_tuning {
 
 // TODO:
 // 1) More tests?
-// 2) Implement FlatVariant and use in here in storage.
 template <size_t SizeSBO, size_t AlignSBO, EConstructorConcept Concept, bool StaticVTable, class Allocator, class... CPOs>
 class AnyObject
     : private detail::ErasedTagInvoker<AnyObject<SizeSBO, AlignSBO, Concept, StaticVTable, Allocator, CPOs...>, CPOs>...
@@ -175,7 +174,7 @@ public:
             throw BadAnyAccess{};
         }
 
-        return detail::StorageTraits<DecayedConcrete, StorageType>::AsConcrete(storage_);
+        return storage_.template AsConcrete<DecayedConcrete>();
     }
 
     template <class Concrete>
@@ -196,7 +195,7 @@ public:
             throw BadAnyAccess{};
         }
 
-        return detail::StorageTraits<DecayedConcrete, StorageType>::AsConcrete(storage_);
+        return storage_.template AsConcrete<DecayedConcrete>();
     }
 
 private:
@@ -236,9 +235,10 @@ private:
         if (vtable_) {
             auto* deleter = vtable_->template Get<detail::DeleterCPO<Allocator>>();
             deleter(detail::Deleter<Allocator>, storage_, allocator_);
+
+            vtable_.Reset();
+            storage_.Reset();
         }
-        vtable_.Reset();
-        storage_.Reset();
     }
 
     template <class Concrete, class... Args>
@@ -246,20 +246,22 @@ private:
     {
         using DecayedConcrete = Decay<Concrete>;
         using Wrapper = detail::ValueWrapper<Concept, DecayedConcrete, Allocator, StorageType, CPOs...>;
-        using StorTraits = detail::StorageTraits<Wrapper, StorageType>;
 
         Reset();
 
         static constexpr auto vtable = VTableType::template Create<Wrapper>(); // NOLINT
         vtable_ = vtable;
 
-        if constexpr (StorTraits::IsStatic) {
-            storage_.Set(typename StorTraits::Static{});
+        if constexpr (StorageType::template IsStatic<DecayedConcrete>) {
+            storage_.Set();
         } else {
             storage_.Set(AllocTraits::allocate(allocator_, sizeof(Wrapper)));
         }
 
-        AllocTraits::template construct<Wrapper>(allocator_, &StorTraits::AsConcrete(storage_), std::forward<Args>(args)...);
+        AllocTraits::template construct<Wrapper>(
+            allocator_,
+            &storage_.template AsConcrete<Wrapper>(),
+            std::forward<Args>(args)...);
     }
 };
 

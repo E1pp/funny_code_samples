@@ -17,164 +17,81 @@ public:
     static constexpr size_t kPaddedSize = SizeSBO < sizeof(void*) ? sizeof(void*) : SizeSBO;
     static constexpr size_t kPaddedAlign = AlignSBO < alignof(void*) ? alignof(void*) : AlignSBO;
 
-    using StaticStorage = std::aligned_storage_t<kPaddedSize, kPaddedAlign>;
-
-    union {
-        [[no_unique_address]] std::monostate empty = {};
-        void* data_ptr;
-        StaticStorage inplace_storage;
-    };
-
     template <class DecayedConcrete>
-    static constexpr bool IsStatic()
-    {
-        return 
-            sizeof(DecayedConcrete) <= kPaddedSize &&
-            alignof(DecayedConcrete) <= kPaddedAlign;
-    }
+    static constexpr bool IsStatic = // NOLINT
+        sizeof(DecayedConcrete) <= kPaddedSize &&
+        alignof(DecayedConcrete) <= kPaddedAlign;
 
     Storage() noexcept = default;
 
-    Storage(const Storage& that) noexcept
-        : Storage()
+    // Must be after def ctor or Reset
+    constexpr void Set(void* ptr) noexcept
     {
-        std::destroy_at(&empty);
-        index_ = that.index_;
-
-        switch (index_) {
-            case 0:
-                std::construct_at(&empty);
-                break;
-            case 1:
-                std::construct_at(&data_ptr, that.data_ptr);
-                break;
-            case 2:
-                std::construct_at(&inplace_storage, that.inplace_storage);
-                break;
-            default:
-                WHEELS_UNREACHABLE();
-        }
+        std::destroy_at(&empty_);
+        std::construct_at<void*>(reinterpret_cast<void**>(&storage_), ptr);
     }
 
-    Storage(Storage&& that) noexcept
-        : Storage()
+    // Must be after def ctor or Reset
+    constexpr void Set() noexcept
     {
-        std::destroy_at(&empty);
-        index_ = that.index_;
-
-        switch (index_) {
-            case 0:
-                std::construct_at(&empty);
-                break;
-            case 1:
-                std::construct_at(&data_ptr, that.data_ptr);
-                break;
-            case 2:
-                std::construct_at(&inplace_storage, std::move(that.inplace_storage));
-                break;
-            default:
-                WHEELS_UNREACHABLE();
-        }
-
-        that.HardReset();
-        that.index_ = 0;
-        std::construct_at(&that.empty);
-
-        return *this;
+        std::destroy_at(&empty_);
+        std::construct_at(&storage_);
     }
 
-    Storage& operator=(const Storage&) = delete;
-    Storage& operator=(Storage&&) = delete;
-
-    void Set(void* ptr) noexcept // NOLINT
-    {
-        HardReset();
-        std::construct_at(&data_ptr, ptr);
-        index_ = 1;
-    }
-
-    void Set(StaticStorage stat) noexcept // NOLINT
-    {
-        HardReset();
-        std::construct_at(&inplace_storage, std::move(stat));
-        index_ = 2;
-    }
-
-    void Reset() noexcept
-    {
-        HardReset();
-        std::construct_at(&empty);
-        index_ = 0;
-    }
-
-    ~Storage() noexcept
-    {
-        HardReset();
-    }
-
-private:
-    int8_t index_ = 0;
-
-    void HardReset() noexcept
-    {
-        switch (index_) {
-            case 0:
-                std::destroy_at(&empty);
-                break;
-            case 1:
-                std::destroy_at(&data_ptr);
-                break;
-            case 2:
-                std::destroy_at(&inplace_storage);
-                break;
-            default:
-                WHEELS_UNREACHABLE();
-        }
-    }
-};
-
-/////////////////////////////////////////////////////////////////////////
-
-template <class DecayedConcrete, class StorageType>
-struct StorageTraits
-{
-    using DecayedStorage = std::remove_cvref_t<StorageType>;
-    using Static = typename DecayedStorage::StaticStorage;
-
-    static constexpr bool IsStatic = DecayedStorage::template IsStatic<DecayedConcrete>(); // NOLINT
-
-    static DecayedConcrete& AsConcrete(DecayedStorage& stor) noexcept
+    template <class DecayedConcrete>
+    constexpr DecayedConcrete& AsConcrete() & noexcept
     {
         using Ptr = DecayedConcrete*;
 
-        if constexpr (IsStatic) {
-            return *std::launder(reinterpret_cast<Ptr>(&stor.inplace_storage));
+        if constexpr (IsStatic<DecayedConcrete>) {
+            return *std::launder(reinterpret_cast<Ptr>(&storage_));
         } else {
-            return *static_cast<Ptr>(stor.data_ptr);
+            return *static_cast<Ptr>(*std::launder(reinterpret_cast<void**>(&storage_)));
         }
     }
 
-    static const DecayedConcrete& AsConcrete(const DecayedStorage& stor) noexcept
+    template <class DecayedConcrete>
+    constexpr const DecayedConcrete& AsConcrete() const & noexcept
     {
-        using Ret = const DecayedConcrete*;
+        using Ptr = const DecayedConcrete*;
 
-        if constexpr (IsStatic) {
-            return *std::launder(reinterpret_cast<Ret>(&stor.inplace_storage));
+        if constexpr (IsStatic<DecayedConcrete>) {
+            return *std::launder(reinterpret_cast<Ptr>(&storage_));
         } else {
-            return *static_cast<Ret>(stor.data_ptr);
+            return *static_cast<Ptr>(*std::launder(reinterpret_cast<void const* const*>(&storage_)));
         }
     }
 
-    static DecayedConcrete&& AsConcrete(DecayedStorage&& stor) noexcept
+    template <class DecayedConcrete>
+    constexpr DecayedConcrete&& AsConcrete() && noexcept
     {
-        using Ret = DecayedConcrete*;
+        using Ptr = DecayedConcrete*;
 
-        if constexpr (IsStatic) {
-            return std::move(*std::launder(reinterpret_cast<Ret>(&stor.inplace_storage)));
+        if constexpr (IsStatic<DecayedConcrete>) {
+            return std::move(*std::launder(reinterpret_cast<Ptr>(&storage_)));
         } else {
-            return std::move(*static_cast<Ret>(stor.data_ptr));
+            return std::move(*static_cast<Ptr>(*std::launder(reinterpret_cast<void**>(&storage_))));
         }
     }
+
+    // Must be after def ctor or Reset
+    ~Storage() noexcept
+    {
+        std::destroy_at(&empty_);
+    }
+
+    // Must be after Set
+    constexpr void Reset() noexcept
+    {
+        std::destroy_at(&storage_);
+        std::construct_at(&empty_);
+    }
+
+private:
+    union {
+        [[no_unique_address]] std::monostate empty_ = {};
+        std::aligned_storage_t<kPaddedSize, kPaddedAlign> storage_;
+    };
 };
 
 /////////////////////////////////////////////////////////////////////////
