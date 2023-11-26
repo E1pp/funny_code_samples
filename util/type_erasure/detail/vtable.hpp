@@ -49,7 +49,7 @@ public:
             Args... args) 
             noexcept(NoExcept) -> Ret
         {
-            using Traits = StorageTraits<DecayedConcrete, Replaced>;
+            using Traits = StorageTraits<DecayedConcrete, StorageType>;
             return cpo(Traits::AsConcrete(std::forward<Replaced>(storage)), std::forward<Args>(args)...);
         });
     }

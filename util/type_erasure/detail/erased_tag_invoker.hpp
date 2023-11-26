@@ -12,12 +12,6 @@ namespace util::detail {
 
 /////////////////////////////////////////////////////////////////////////
 
-struct EmptyAnyException
-    : public std::exception
-{ };
-
-/////////////////////////////////////////////////////////////////////////
-
 // Defines tag invoke for our type erasure class
 // Derived == AnyObject
 template <class Any, TypedCPO CPO, Signature Sig = typename CPO::Signature>

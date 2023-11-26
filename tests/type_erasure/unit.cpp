@@ -96,11 +96,24 @@ class TOL4
     }
 };
 
+struct TOL5
+{
+    friend std::optional<int> TagInvoke(Tag<Test>, TOL5&& obj) noexcept
+    {
+        auto val = obj.v;
+        obj.v.reset();
+
+        return val;
+    }
+
+    std::optional<int> v;
+};
+
 template <size_t Padding>
 class Checker
 {
 public:
-    static const auto& GetValues() 
+    static auto& GetValues() 
     {
         return values;
     }
@@ -130,8 +143,15 @@ template<std::size_t Padding, bool Reallocate>
 void TestSBO() {
     using Alloc = TrackerAllocator<std::byte, Reallocate>;
     using Checker = Checker<Padding>;
-    using Any = fine_tuning::AnyObject<31, 32, Alloc, EConstructorConcept::NothrowCopyConstructible>;
+    using Any = fine_tuning::AnyObject<
+        31, 
+        32, 
+        Alloc, 
+        EConstructorConcept::NothrowCopyConstructible,
+        Overload<Tag<Test>, void(This&, int) noexcept>
+        >;
     Alloc::ResetCounters();
+    Checker::GetValues().clear();
 
     
     auto any = Any();
@@ -147,8 +167,14 @@ void TestSBO() {
     const std::size_t per_move_construct_place_inc = kEnableSBO ? 1 : 0;
 
     any.Emplace(Checker::GetLogger());
+    ASSERT_EQ(Checker::GetValues(), std::vector<int>({}));
     ASSERT_EQ(Alloc::AllocCount(), per_copy_alloc_inc);
     ASSERT_EQ(Alloc::PlacementCount(), 1u);
+
+    Test(any, 5);
+
+    ASSERT_EQ(Checker::GetValues().size(), 1);
+    ASSERT_EQ(Checker::GetValues()[0], 5);
 
     any.Emplace(Checker::GetLogger());
     ASSERT_EQ(Alloc::AllocCount(), 2 * per_copy_alloc_inc);
@@ -342,6 +368,23 @@ TEST_SUITE(AnyObject)
         ASSERT_FALSE(Test(any2));
     }
 
+    SIMPLE_TEST(MoveStateful)
+    {
+        using Any = AnyObject<
+            EConstructorConcept::MoveConstructible,
+            Overload<Tag<Test>, std::optional<int>(This&&) noexcept>
+        >;
+
+        Any any{TOL5{.v = 6}};
+
+        auto ret = Test(std::move(any));
+        ASSERT_TRUE(ret);
+        ASSERT_EQ(*ret, 6);
+
+        auto ret2 = Test(std::move(any));
+        ASSERT_FALSE(ret2);
+    }
+
     SIMPLE_TEST(Ambiguous)
     {
         using Any = AnyObject<
@@ -361,6 +404,35 @@ TEST_SUITE(AnyObject)
     {
         ::TestSBO<0, false>();
         ::TestSBO<0, true>();
+    }
+
+    SIMPLE_TEST(Get)
+    {
+        using Any = AnyObject<
+            EConstructorConcept::MoveConstructible
+        >;
+
+        Any any(TNOL{});
+
+        auto ref = any.template Get<TNOL>();
+
+        ASSERT_TRUE(ref);
+
+        any = TOL5{.v = 5};
+
+        auto ref2 = any.template Get<TOL5>();
+
+        ASSERT_TRUE(ref2);
+        ASSERT_EQ((*ref2).v, std::optional<int>(5));
+
+        auto ref3 = any.template Get<TNOL>();
+
+        ASSERT_FALSE(ref3);
+
+        auto ref4 = Get<TOL5>(any);
+
+        ASSERT_TRUE(ref4);
+        ASSERT_EQ((*ref4).v, std::optional<int>(5));
     }
 }
 
