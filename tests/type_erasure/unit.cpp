@@ -445,7 +445,7 @@ TEST_SUITE(AnyObject)
             true, 
             std::allocator<std::byte>,
             Overload<Tag<Test>, std::optional<int>(This&&) noexcept>>;
-        using NonStaticAny = fine_tuning::AnyObject<0, 0, EConstructorConcept::NothrowCopyConstructible, false, std::allocator<std::byte>>;
+        using NonStaticAny = fine_tuning::AnyObject<0, 0, EConstructorConcept::MoveConstructible, false, std::allocator<std::byte>>;
 
         std::cout << sizeof(Any) << '\n';
         std::cout << sizeof(NonStaticAny) << '\n'; 
