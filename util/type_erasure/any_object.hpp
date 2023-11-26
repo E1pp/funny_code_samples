@@ -12,14 +12,20 @@ namespace util {
 
 /////////////////////////////////////////////////////////////////////////
 
+struct BadAnyAccess
+    : public std::exception
+{ };
+
+/////////////////////////////////////////////////////////////////////////
+
 namespace fine_tuning {
 
 // TODO:
-// 1) Opt-in/Opt-out static vtable
-// 2) Get<Concrete>() => Concrete&
-template <size_t SizeSBO, size_t AlignSBO, class Allocator, EConstructorConcept Concept, class... CPOs>
+// 1) More tests?
+// 2) Implement FlatVariant and use in here in storage.
+template <size_t SizeSBO, size_t AlignSBO, EConstructorConcept Concept, bool StaticVTable, class Allocator, class... CPOs>
 class AnyObject
-    : private detail::ErasedTagInvoker<AnyObject<SizeSBO, AlignSBO, Allocator, Concept, CPOs...>, CPOs>...
+    : private detail::ErasedTagInvoker<AnyObject<SizeSBO, AlignSBO, Concept, StaticVTable, Allocator, CPOs...>, CPOs>...
 {
 public:
     explicit AnyObject(Allocator alloc = {}) noexcept
@@ -58,10 +64,10 @@ public:
         , allocator_(std::move(that.allocator_))
     {
         if (vtable_) {
-            auto* mover = vtable_.template Get<detail::MoveCPO<Allocator, StorageType>>();
+            auto* mover = vtable_->template Get<detail::MoveCPO<Allocator, StorageType>>();
             mover(detail::Mover<Allocator, StorageType>, std::move(that.storage_), storage_, allocator_);
 
-            that.vtable_ = {};
+            that.vtable_.Reset();
             that.storage_.Reset();
         }
     }
@@ -82,14 +88,14 @@ public:
 
         if (vtable_) {
             if constexpr (AllocTraits::propagate_on_container_move_assignment::value) {
-                auto* mover = vtable_.template Get<detail::MoveCPO<Allocator, StorageType>>();
+                auto* mover = vtable_->template Get<detail::MoveCPO<Allocator, StorageType>>();
                 mover(detail::Mover<Allocator, StorageType>, std::move(that.storage_), storage_, allocator_);
             } else {
-                auto* mover = vtable_.template Get<detail::MoveReallocCPO<Allocator, StorageType>>();
+                auto* mover = vtable_->template Get<detail::MoveReallocCPO<Allocator, StorageType>>();
                 mover(detail::ReallocMover<Allocator, StorageType>, std::move(that.storage_), storage_, allocator_, std::move(that.allocator_));
             }
 
-            that.vtable_ = {};
+            that.vtable_.Reset();
             that.storage_.Reset();
         }
 
@@ -102,7 +108,7 @@ public:
         , allocator_(AllocTraits::select_on_container_copy_construction(that.allocator_))
     {
         if (vtable_) {
-            auto copier = vtable_.template Get<detail::CopyCPO<Allocator, StorageType>>();
+            auto copier = vtable_->template Get<detail::CopyCPO<Allocator, StorageType>>();
             copier(detail::Copier<Allocator, StorageType>, that.storage_, storage_, allocator_);
         }
     }
@@ -122,7 +128,7 @@ public:
         }
 
         if (vtable_) {
-            auto* copier = vtable_.template Get<detail::CopyCPO<Allocator, StorageType>>();
+            auto* copier = vtable_->template Get<detail::CopyCPO<Allocator, StorageType>>();
             copier(detail::Copier<Allocator, StorageType>, that.storage_, storage_, allocator_);
         }
 
@@ -156,20 +162,20 @@ public:
             (!std::same_as<std::remove_cvref_t<Concrete>, AnyObject>) &&
             (detail::AccordinglyConstructible<std::remove_cvref_t<Concrete>, Concept>) &&
             (detail::TypeErasable<Concrete, CPOs...>)
-    std::optional<std::remove_cvref_t<Concrete&>> Get() & noexcept
+    std::remove_cvref_t<Concrete>& Get() &
     {
         using DecayedConcrete = Decay<Concrete>;
         using TesterVTableEntry = detail::VTableEntry<StorageType, detail::DeleterCPO<Allocator>>;
         using TesterWrapper = detail::ValueWrapper<Concept, DecayedConcrete, Allocator, StorageType, CPOs...>;
 
         if (!vtable_ ||
-            vtable_.template Get<detail::DeleterCPO<Allocator>>() 
+            vtable_->template Get<detail::DeleterCPO<Allocator>>() 
                 != TesterVTableEntry::template Create<TesterWrapper>().Get())
         {
-            return std::nullopt;
+            throw BadAnyAccess{};
         }
 
-        return {detail::StorageTraits<DecayedConcrete, StorageType>::AsConcrete(storage_)};
+        return detail::StorageTraits<DecayedConcrete, StorageType>::AsConcrete(storage_);
     }
 
     template <class Concrete>
@@ -177,20 +183,20 @@ public:
             (!std::same_as<std::remove_cvref_t<Concrete>, AnyObject>) &&
             (detail::AccordinglyConstructible<std::remove_cvref_t<Concrete>, Concept>) &&
             (detail::TypeErasable<Concrete, CPOs...>)
-    std::optional<const Concrete&> Get() const & noexcept
+    const std::remove_cvref_t<Concrete>& Get() const &
     {
         using DecayedConcrete = Decay<Concrete>;
         using TesterVTableEntry = detail::VTableEntry<StorageType, detail::DeleterCPO<Allocator>>;
         using TesterWrapper = detail::ValueWrapper<Concept, DecayedConcrete, Allocator, StorageType, CPOs...>;
 
         if (!vtable_ ||
-            vtable_.template Get<detail::DeleterCPO<Allocator>>() 
+            vtable_->template Get<detail::DeleterCPO<Allocator>>() 
                 != TesterVTableEntry::template Create<TesterWrapper>().Get())
         {
-            return std::nullopt;
+            throw BadAnyAccess{};
         }
 
-        return {detail::StorageTraits<DecayedConcrete, StorageType>::AsConcrete(storage_)};
+        return detail::StorageTraits<DecayedConcrete, StorageType>::AsConcrete(storage_);
     }
 
 private:
@@ -199,7 +205,7 @@ private:
     using VTableType = detail::AugmentedVTable<Concept, Allocator, StorageType, CPOs...>;
 
     StorageType storage_;
-    VTableType vtable_;
+    detail::VTableHolder<StaticVTable, VTableType> vtable_;
     [[no_unique_address]] Allocator allocator_;
 
     template <class Derived, TypedCPO CPO, Signature Sig>
@@ -220,18 +226,18 @@ private:
         return std::move(storage_);
     }
 
-    const auto* GetVTable() const noexcept
+    const auto& GetVTable() const noexcept
     {
-        return &vtable_;
+        return vtable_;
     }
 
     void Reset() noexcept
     {
         if (vtable_) {
-            auto* deleter = vtable_.template Get<detail::DeleterCPO<Allocator>>();
+            auto* deleter = vtable_->template Get<detail::DeleterCPO<Allocator>>();
             deleter(detail::Deleter<Allocator>, storage_, allocator_);
         }
-        vtable_ = {};
+        vtable_.Reset();
         storage_.Reset();
     }
 
@@ -266,7 +272,7 @@ private:
 using detail::This;
 
 template <EConstructorConcept Concept, class... CPOs>
-using AnyObject = fine_tuning::AnyObject<63, 64, std::allocator<std::byte>, Concept, CPOs...>;
+using AnyObject = fine_tuning::AnyObject<63, 64, Concept, false, std::allocator<std::byte>, CPOs...>;
 
 template <class Concrete, class Any>
     // requires IsInstanceOfAny

@@ -104,4 +104,100 @@ private:
 
 /////////////////////////////////////////////////////////////////////////
 
+template <bool IsStatic, class Table>
+class VTableHolder
+{
+public:
+    constexpr VTableHolder() noexcept = default;
+
+    constexpr VTableHolder(const Table& table) noexcept // NOLINT
+        : table_(&table)
+    { }
+
+    constexpr Table& operator*() noexcept
+    {
+        return *table_;
+    }
+
+    constexpr const Table& operator*() const noexcept
+    {
+        return *table_;
+    }
+
+    constexpr Table* operator->() noexcept
+    {
+        return table_;
+    }
+
+    constexpr const Table* operator->() const noexcept
+    {
+        return table_;
+    }
+
+    constexpr explicit operator bool() const noexcept
+    {
+        if (!table_) {
+            return false;
+        }
+
+        return static_cast<bool>(table_);
+    }
+
+    void Reset() noexcept
+    {
+        if (table_) {
+            *table_ = {};
+        }
+    }
+
+private:
+    Table* table_ = nullptr;
+};
+
+template <class Table>
+class VTableHolder<false, Table>
+{
+public:
+    constexpr VTableHolder() noexcept = default;
+
+    constexpr VTableHolder(const Table& table) noexcept // NOLINT
+        : table_(table)
+    { }
+
+    constexpr Table& operator*() noexcept
+    {
+        return table_;
+    }
+
+    constexpr const Table& operator*() const noexcept
+    {
+        return table_;
+    }
+
+    constexpr Table* operator->() noexcept
+    {
+        return &table_;
+    }
+
+    constexpr const Table* operator->() const noexcept
+    {
+        return &table_;
+    }
+
+    constexpr explicit operator bool() const noexcept
+    {
+        return static_cast<bool>(table_);
+    }
+
+    void Reset() noexcept
+    {
+        table_ = {};
+    }
+
+private:
+    Table table_ = {};
+};
+
+/////////////////////////////////////////////////////////////////////////
+
 } // namespace util::detail

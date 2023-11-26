@@ -36,9 +36,9 @@ struct ErasedTagInvoker<Any, CPO, Ret(FirstArg, Args...) noexcept(NoExcept)>
             { any.GetObjectStorage() };
         });
 
-        auto* vtable = any_object.GetVTable();
+        auto& vtable = any_object.GetVTable();
 
-        WHEELS_VERIFY(*vtable, "Empty Any!");
+        WHEELS_VERIFY(vtable, "Empty Any!");
 
         auto* function = vtable->template Get<CPO>();
 

@@ -144,10 +144,11 @@ void TestSBO() {
     using Alloc = TrackerAllocator<std::byte, Reallocate>;
     using Checker = Checker<Padding>;
     using Any = fine_tuning::AnyObject<
-        31, 
         32, 
-        Alloc, 
+        32, 
         EConstructorConcept::NothrowCopyConstructible,
+        false,
+        Alloc, 
         Overload<Tag<Test>, void(This&, int) noexcept>
         >;
     Alloc::ResetCounters();
@@ -414,25 +415,23 @@ TEST_SUITE(AnyObject)
 
         Any any(TNOL{});
 
-        auto ref = any.template Get<TNOL>();
-
-        ASSERT_TRUE(ref);
+        [[maybe_unused]] auto ref = any.template Get<TNOL>();
 
         any = TOL5{.v = 5};
 
-        auto ref2 = any.template Get<TOL5>();
+        auto& ref2 = any.template Get<TOL5>();
 
-        ASSERT_TRUE(ref2);
-        ASSERT_EQ((*ref2).v, std::optional<int>(5));
+        ASSERT_EQ(ref2.v, std::optional<int>(5));
 
-        auto ref3 = any.template Get<TNOL>();
+        ASSERT_THROW(any.template Get<TNOL>(), BadAnyAccess);
 
-        ASSERT_FALSE(ref3);
+        auto& ref4 = Get<TOL5>(any);
 
-        auto ref4 = Get<TOL5>(any);
+        ASSERT_EQ(ref4.v, std::optional<int>(5));
 
-        ASSERT_TRUE(ref4);
-        ASSERT_EQ((*ref4).v, std::optional<int>(5));
+        [[maybe_unused]] const auto& anyref = any;
+
+        [[maybe_unused]] const auto& cref = anyref.template Get<TOL5>();
     }
 }
 
