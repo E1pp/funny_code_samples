@@ -11,6 +11,7 @@ TEST_SUITE(Interface)
         auto mock = CreateMock();
 
         MockTraits::Foo(mock, 5);
+        MockTraits::Foo(mock, 6);
     }
 }
 

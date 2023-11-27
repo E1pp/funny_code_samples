@@ -1,10 +1,7 @@
 #pragma once
 
+#include <memory>
 #include <variant>
-
-#include <wheels/core/assert.hpp>
-#include <wheels/core/compiler.hpp>
-#include <wheels/core/panic.hpp>
 
 namespace util::detail {
 
@@ -19,22 +16,20 @@ public:
 
     template <class DecayedConcrete>
     static constexpr bool IsStatic = // NOLINT
-        sizeof(DecayedConcrete) <= kPaddedSize &&
-        alignof(DecayedConcrete) <= kPaddedAlign;
+        sizeof(DecayedConcrete) <= SizeSBO &&
+        alignof(DecayedConcrete) <= AlignSBO;
 
     Storage() noexcept = default;
 
     // Must be after def ctor or Reset
     constexpr void Set(void* ptr) noexcept
     {
-        std::destroy_at(&empty_);
         std::construct_at<void*>(reinterpret_cast<void**>(&storage_), ptr);
     }
 
     // Must be after def ctor or Reset
     constexpr void Set() noexcept
     {
-        std::destroy_at(&empty_);
         std::construct_at(&storage_);
     }
 
@@ -76,20 +71,17 @@ public:
 
     // Must be after def ctor or Reset
     ~Storage() noexcept
-    {
-        std::destroy_at(&empty_);
-    }
+    { }
 
     // Must be after Set
     constexpr void Reset() noexcept
     {
         std::destroy_at(&storage_);
-        std::construct_at(&empty_);
     }
 
 private:
     union {
-        [[no_unique_address]] std::monostate empty_ = {};
+        // [[no_unique_address]] std::monostate empty_ = {};
         std::aligned_storage_t<kPaddedSize, kPaddedAlign> storage_;
     };
 };

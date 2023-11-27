@@ -1,4 +1,5 @@
 add_test_target(util_arcane_static_env_unit_test arcane/static_env/unit.cpp)
+add_test_target(util_arcane_reflector_unit_test  arcane/reflector/unit.cpp)
 
 add_test_target(util_common_tag_invoke_unit_test common/tag_invoke/unit.cpp)
 add_test_target(util_common_meta_unit_test       common/meta/unit.cpp)
