@@ -30,7 +30,7 @@ public:
     // Must be after def ctor or Reset
     constexpr void Set() noexcept
     {
-        std::construct_at(&storage_);
+        std::construct_at(storage_);
     }
 
     template <class DecayedConcrete>
@@ -80,10 +80,7 @@ public:
     }
 
 private:
-    union {
-        // [[no_unique_address]] std::monostate empty_ = {};
-        std::aligned_storage_t<kPaddedSize, kPaddedAlign> storage_;
-    };
+    alignas(kPaddedAlign) std::byte storage_[kPaddedSize];
 };
 
 /////////////////////////////////////////////////////////////////////////
