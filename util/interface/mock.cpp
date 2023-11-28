@@ -7,11 +7,12 @@ namespace util {
 /////////////////////////////////////////////////////////////////////////
 
 class TMock
+    : private ImplementorBase<TMock>
 {
 public:
     TMock() = default;
 
-    friend void TagInvoke(Tag<MockTraits::Foo>, TMock&, int num) noexcept
+    void Implement(Tag<MockTraits::Foo>, int num) const noexcept
     {
         std::cout << "Foo from .cpp -> " << num << '\n';
     }

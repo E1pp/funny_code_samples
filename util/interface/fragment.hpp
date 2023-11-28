@@ -23,7 +23,6 @@ struct FragmentImpl<T, Ret(FirstArg, Args...) noexcept(NoExcept)>
 
     template <class Concrete>
         requires 
-            (std::same_as<Concrete, Replace<Concrete, FirstArg>>) &&
             (TagInvocable<FragmentImpl, Concrete, Args...>)
     constexpr Ret operator()(Concrete&& conc, Args... args) const
         noexcept(NothrowTagInvocable<FragmentImpl, Concrete, Args...>)
