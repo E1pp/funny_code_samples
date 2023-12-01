@@ -1,4 +1,4 @@
-// #pragma once
+#pragma once
 
 #include "constructor_concept.hpp"
 #include "wrapped_tag_invoker.hpp"

@@ -111,9 +111,12 @@ class VTableHolder
 public:
     constexpr VTableHolder() noexcept = default;
 
-    constexpr VTableHolder(const Table& table) noexcept // NOLINT
-        : table_(&table)
-    { }
+    template <class Concrete>
+    static constexpr VTableHolder Create() noexcept
+    {
+        static constexpr auto kVtable = Table::template Create<Concrete>();
+        return VTableHolder(&kVtable);
+    }
 
     constexpr const Table& operator*() const noexcept
     {
@@ -140,6 +143,10 @@ public:
     }
 
 private:
+    explicit VTableHolder(const Table* table) noexcept
+        : table_(table)
+    { }
+
    const Table* table_ = nullptr;
 };
 
@@ -149,9 +156,11 @@ class VTableHolder<false, Table>
 public:
     constexpr VTableHolder() noexcept = default;
 
-    constexpr VTableHolder(const Table& table) noexcept // NOLINT
-        : table_(table)
-    { }
+    template <class Concrete>
+    static constexpr VTableHolder Create() noexcept
+    {
+        return VTableHolder(std::in_place_type<Concrete>);
+    }
 
     constexpr Table& operator*() noexcept
     {
@@ -184,6 +193,11 @@ public:
     }
 
 private:
+    template <class Concrete>
+    explicit VTableHolder(std::in_place_type_t<Concrete>) noexcept
+        : table_(Table::template Create<Concrete>())
+    { }
+
     Table table_ = {};
 };
 

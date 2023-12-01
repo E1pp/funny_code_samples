@@ -21,13 +21,11 @@ public:
 
     Storage() noexcept = default;
 
-    // Must be after def ctor or Reset
     constexpr void Set(void* ptr) noexcept
     {
-        std::construct_at<void*>(reinterpret_cast<void**>(&storage_), ptr);
+        std::construct_at<void*>(reinterpret_cast<void**>(storage_), ptr);
     }
 
-    // Must be after def ctor or Reset
     constexpr void Set() noexcept
     {
         std::construct_at(storage_);
@@ -67,16 +65,6 @@ public:
         } else {
             return std::move(*static_cast<Ptr>(*std::launder(reinterpret_cast<void**>(&storage_))));
         }
-    }
-
-    // Must be after def ctor or Reset
-    ~Storage() noexcept
-    { }
-
-    // Must be after Set
-    constexpr void Reset() noexcept
-    {
-        std::destroy_at(&storage_);
     }
 
 private:

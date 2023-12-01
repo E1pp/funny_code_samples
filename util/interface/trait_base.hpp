@@ -1,7 +1,5 @@
 #pragma once
 
-#include <util/arcane/reflector_base.hpp>
-
 #include "fragment.hpp"
 
 namespace util {

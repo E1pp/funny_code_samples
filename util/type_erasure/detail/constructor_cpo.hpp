@@ -80,32 +80,4 @@ inline constexpr CopyCPO<Allocator, StorageType> Copier = {}; // NOLINT
 
 /////////////////////////////////////////////////////////////////////////
 
-// inline constexpr struct CopyConstructorCPO {
-//     using Signature = void(Storage&);
-
-//     template <class Concrete>
-//         requires TagInvocable<CopyConstructorCPO, Concrete, Storage&>
-//     void operator()(const Concrete& conc, Storage& to) const
-//         noexcept(NothrowTagInvocable<CopyConstructorCPO, Concrete, Storage&>)
-//     {
-//         return TagInvoke(*this, conc, to);
-//     }
-// } CopyConstructor = {}; // NOLINT
-
-// /////////////////////////////////////////////////////////////////////////
-
-// inline constexpr struct CopyAssignerCPO {
-//     using Signature = void(Storage&);
-
-//     template <class Concrete>
-//         requires TagInvocable<CopyAssignerCPO, Concrete, void*>
-//     void operator()(const Concrete& conc, void* to) const
-//         noexcept(NothrowTagInvocable<CopyAssignerCPO, Concrete, void*>)
-//     {
-//         return TagInvoke(*this, conc, to);
-//     }
-// } CopyAssigner = {}; // NOLINT
-
-/////////////////////////////////////////////////////////////////////////
-
 } // namespace util::detail

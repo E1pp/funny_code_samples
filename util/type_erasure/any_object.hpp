@@ -67,7 +67,6 @@ public:
             mover(detail::Mover<Allocator, StorageType>, std::move(that.storage_), storage_, allocator_);
 
             that.vtable_.Reset();
-            that.storage_.Reset();
         }
     }
 
@@ -95,7 +94,6 @@ public:
             }
 
             that.vtable_.Reset();
-            that.storage_.Reset();
         }
 
         return *this;
@@ -202,9 +200,10 @@ private:
     using AllocTraits = std::allocator_traits<Allocator>;
     using StorageType = detail::Storage<SizeSBO, AlignSBO>;
     using VTableType = detail::AugmentedVTable<Concept, Allocator, StorageType, CPOs...>;
+    using Holder = detail::VTableHolder<StaticVTable, VTableType>;
 
     StorageType storage_;
-    detail::VTableHolder<StaticVTable, VTableType> vtable_;
+    Holder vtable_;
     [[no_unique_address]] Allocator allocator_;
 
     template <class Derived, TypedCPO CPO, Signature Sig>
@@ -237,7 +236,6 @@ private:
             deleter(detail::Deleter<Allocator>, storage_, allocator_);
 
             vtable_.Reset();
-            storage_.Reset();
         }
     }
 
@@ -249,8 +247,7 @@ private:
 
         Reset();
 
-        static constexpr auto vtable = VTableType::template Create<Wrapper>(); // NOLINT
-        vtable_ = vtable;
+        vtable_ = Holder::template Create<Wrapper>();
 
         if constexpr (StorageType::template IsStatic<DecayedConcrete>) {
             storage_.Set();
